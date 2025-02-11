@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini AI Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+    <style>
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .animated-bg {
+            background: linear-gradient(-45deg, #1f1f1f, #2d1f3d, #1f1f1f, #3d1f2d);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        .glass-effect {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .message-transition {
+            transition: all 0.3s ease;
+            animation: messageSlide 0.3s ease;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hover-scale {
+            transition: transform 0.2s ease;
+        }
+
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+
+        .scrollbar-thumb-zinc-700::-webkit-scrollbar-thumb {
+            background-color: rgb(63 63 70 / 0.5);
+            border-radius: 9999px;
+        }
+
+        .scrollbar-track-transparent::-webkit-scrollbar-track {
+            background-color: transparent;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: rgb(63 63 70 / 0.5);
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgb(63 63 70 / 0.7);
+        }
+
+        .markdown-body {
+            color: inherit;
+        }
+
+        .markdown-body pre {
+            background-color: #1e1e1e;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .markdown-body code {
+            background-color: rgba(110, 118, 129, 0.4);
+            border-radius: 0.375rem;
+            padding: 0.2em 0.4em;
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+    </style>
+</head>
+<body class="animated-bg text-zinc-50 min-h-screen">
+    <div class="flex flex-col h-screen">
+        <div class="glass-effect border-b border-zinc-700/50 p-4 flex items-center justify-between sticky top-0 z-10">
+            <div class="flex items-center space-x-3">
+                <div class="p-3 bg-purple-500/20 rounded-2xl hover-scale">
+                    <i class="fas fa-robot text-2xl text-purple-400 pulse"></i>
+                </div>
+                <div class="flex flex-col">
+                    <h2 class="text-xl font-bold text-zinc-50">Gemini AI Chat</h2>
+                    <p class="text-xs text-zinc-400 hidden sm:block">Powered by Google's Advanced AI</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="clearChat" class="p-3 hover:bg-zinc-700/50 rounded-xl transition-all duration-300 hover-scale">
+                    <i class="fas fa-trash-alt text-zinc-400 hover:text-purple-400 transition-colors"></i>
+                </button>
+                <button id="themeToggle" class="p-3 hover:bg-zinc-700/50 rounded-xl transition-all duration-300 hover-scale">
+                    <i class="fas fa-sun text-zinc-400 hover:text-purple-400 transition-colors"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+            <div class="flex justify-center">
+                <div class="glass-effect border border-zinc-700/50 rounded-2xl p-6 max-w-md hover-scale">
+                    <p class="text-center text-zinc-300">Welcome to Gemini AI Chat! How can I assist you today?</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="chatForm" class="p-4 glass-effect border-t border-zinc-700/50 flex items-center space-x-3 sticky bottom-0">
+            <input
+                type="text"
+                id="userInput"
+                placeholder="Type your message..."
+                class="flex-1 h-14 rounded-xl border border-zinc-700/50 bg-zinc-900/50 backdrop-blur-sm px-6 text-sm text-zinc-50 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+            >
+            <button
+                type="submit"
+                class="h-14 bg-purple-500 hover:bg-purple-600 text-white rounded-xl px-6 font-medium transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-500 hover-scale"
+            >
+                <span class="hidden sm:inline">Send</span>
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        const clearChat = document.getElementById('clearChat');
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+        const chatMessages = document.getElementById('chatMessages');
+        let isDark = true;
+
+        themeToggle.addEventListener('click', () => {
+            isDark = !isDark;
+            document.body.classList.toggle('bg-white', !isDark);
+            document.body.classList.toggle('text-zinc-900', !isDark);
+            themeToggle.innerHTML = isDark 
+                ? '<i class="fas fa-sun text-zinc-400 hover:text-zinc-50 transition-colors"></i>'
+                : '<i class="fas fa-moon text-zinc-400 hover:text-zinc-50 transition-colors"></i>';
+        });
+
+        clearChat.addEventListener('click', () => {
+            chatMessages.innerHTML = '';
+            addWelcomeMessage();
+        });
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (message) {
+                addMessage('user', message);
+                userInput.value = '';
+                simulateResponse(message);
+            }
+        });
+
+        function addWelcomeMessage() {
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'flex justify-center';
+            welcomeDiv.innerHTML = `
+                <div class="glass-effect border border-zinc-700/50 rounded-2xl p-6 max-w-md hover-scale">
+                    <p class="text-center text-zinc-300">Welcome to Gemini AI Chat! How can I assist you today?</p>
+                </div>
+            `;
+            chatMessages.appendChild(welcomeDiv);
+        }
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex justify-${role === 'user' ? 'end' : 'start'} message-transition`;
+            messageDiv.innerHTML = `
+                <div class="flex items-start space-x-2 max-w-[85%]">
+                    ${role === 'assistant' ? `
+                        <div class="flex-shrink-0 mt-1">
+                            <div class="p-2 bg-purple-500/20 rounded-xl">
+                                <i class="fas fa-robot text-lg text-purple-400"></i>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div class="rounded-2xl p-4 text-sm shadow-lg ${
+                        role === 'user' ? 'bg-purple-500 text-white ml-4' : 'bg-zinc-800/50 border-zinc-700/50 border mr-4'
+                    }">
+                        <div class="markdown-body whitespace-pre-wrap leading-relaxed">${marked.parse(content)}</div>
+                    </div>
+                    ${role === 'user' ? `
+                        <div class="flex-shrink-0 mt-1">
+                            <div class="p-2 bg-purple-500/20 rounded-xl">
+                                <i class="fas fa-user text-lg text-purple-400"></i>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            hljs.highlightAll();
+        }
+
+        function simulateResponse(userMessage) {
+            addMessage('assistant', '<i class="fas fa-spinner fa-spin"></i> Thinking...');
+            
+            setTimeout(() => {
+                chatMessages.removeChild(chatMessages.lastChild);
+                let response;
+                if (userMessage.toLowerCase().includes('code')) {
+                    response = "Here's a simple Python function that calculates the factorial of a number:\n\n```python\ndef factorial(n):\n    if n == 0 or n == 1:\n        return 1\n    else:\n        return n * factorial(n - 1)\n\n# Example usage\nprint(factorial(5))  # Output: 120\n```\n\nThis function uses recursion to calculate the factorial. Would you like me to explain how it works?";
+                } else {
+                    response = "I understand you're asking about \"" + userMessage + "\". As an AI language model, I can provide information on a wide range of topics. Could you please provide more context or specify what aspect you'd like to know about?";
+                }
+                addMessage('assistant', response);
+            }, 2000);
+        }
+
+        addWelcomeMessage();
+    </script>
+</body>
+</html>
