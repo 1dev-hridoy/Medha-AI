@@ -144,6 +144,21 @@
         </div>
 
         <form id="chatForm" class="p-4 glass-effect border-t border-zinc-700/50 flex items-center space-x-3 sticky bottom-0">
+            <div class="relative">
+                <input 
+                    type="file" 
+                    id="imageUpload" 
+                    accept="image/*" 
+                    class="hidden" 
+                >
+                <button 
+                    type="button" 
+                    onclick="document.getElementById('imageUpload').click()" 
+                    class="h-14 w-14 rounded-xl border border-zinc-700/50 bg-zinc-900/50 hover:bg-zinc-800/50 flex items-center justify-center transition-all"
+                >
+                    <i class="fas fa-image text-zinc-400"></i>
+                </button>
+            </div>
             <input
                 type="text"
                 id="userInput"
@@ -161,52 +176,26 @@
     </div>
 
     <script>
-        const themeToggle = document.getElementById('themeToggle');
-        const clearChat = document.getElementById('clearChat');
         const chatForm = document.getElementById('chatForm');
         const userInput = document.getElementById('userInput');
         const chatMessages = document.getElementById('chatMessages');
-        let isDark = true;
+        const imageUpload = document.getElementById('imageUpload');
+        let selectedImage = null;
+        const sessionId = Date.now().toString();
 
-        themeToggle.addEventListener('click', () => {
-            isDark = !isDark;
-            document.body.classList.toggle('bg-white', !isDark);
-            document.body.classList.toggle('text-zinc-900', !isDark);
-            themeToggle.innerHTML = isDark 
-                ? '<i class="fas fa-sun text-zinc-400 hover:text-zinc-50 transition-colors"></i>'
-                : '<i class="fas fa-moon text-zinc-400 hover:text-zinc-50 transition-colors"></i>';
-        });
-
-        clearChat.addEventListener('click', () => {
-            chatMessages.innerHTML = '';
-            addWelcomeMessage();
-        });
-
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const message = userInput.value.trim();
-            if (message) {
-                addMessage('user', message);
-                userInput.value = '';
-                simulateResponse(message);
+        imageUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedImage = file;
+                // Preview will be shown when message is sent
             }
         });
 
-        function addWelcomeMessage() {
-            const welcomeDiv = document.createElement('div');
-            welcomeDiv.className = 'flex justify-center';
-            welcomeDiv.innerHTML = `
-                <div class="glass-effect border border-zinc-700/50 rounded-2xl p-6 max-w-md hover-scale">
-                    <p class="text-center text-zinc-300">Welcome to Gemini AI Chat! How can I assist you today?</p>
-                </div>
-            `;
-            chatMessages.appendChild(welcomeDiv);
-        }
-
-        function addMessage(role, content) {
+        function addMessage(role, content, imageUrl = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `flex justify-${role === 'user' ? 'end' : 'start'} message-transition`;
-            messageDiv.innerHTML = `
+            
+            let messageContent = `
                 <div class="flex items-start space-x-2 max-w-[85%]">
                     ${role === 'assistant' ? `
                         <div class="flex-shrink-0 mt-1">
@@ -218,6 +207,11 @@
                     <div class="rounded-2xl p-4 text-sm shadow-lg ${
                         role === 'user' ? 'bg-purple-500 text-white ml-4' : 'bg-zinc-800/50 border-zinc-700/50 border mr-4'
                     }">
+                        ${imageUrl ? `
+                            <div class="mb-2">
+                                <img src="${imageUrl}" alt="Uploaded image" class="rounded-lg max-w-[200px] max-h-[200px] object-cover" />
+                            </div>
+                        ` : ''}
                         <div class="markdown-body whitespace-pre-wrap leading-relaxed">${marked.parse(content)}</div>
                     </div>
                     ${role === 'user' ? `
@@ -229,27 +223,95 @@
                     ` : ''}
                 </div>
             `;
+            
+            messageDiv.innerHTML = messageContent;
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
             hljs.highlightAll();
         }
 
-        function simulateResponse(userMessage) {
-            addMessage('assistant', '<i class="fas fa-spinner fa-spin"></i> Thinking...');
+        async function sendMessage(e) {
+            e.preventDefault();
+            const message = userInput.value.trim();
             
-            setTimeout(() => {
-                chatMessages.removeChild(chatMessages.lastChild);
-                let response;
-                if (userMessage.toLowerCase().includes('code')) {
-                    response = "Here's a simple Python function that calculates the factorial of a number:\n\n```python\ndef factorial(n):\n    if n == 0 or n == 1:\n        return 1\n    else:\n        return n * factorial(n - 1)\n\n# Example usage\nprint(factorial(5))  # Output: 120\n```\n\nThis function uses recursion to calculate the factorial. Would you like me to explain how it works?";
-                } else {
-                    response = "I understand you're asking about \"" + userMessage + "\". As an AI language model, I can provide information on a wide range of topics. Could you please provide more context or specify what aspect you'd like to know about?";
+            if (!message && !selectedImage) {
+                return;
+            }
+
+            let imageUrl = null;
+            if (selectedImage) {
+                imageUrl = URL.createObjectURL(selectedImage);
+            }
+
+            // Add user message with image if present
+            addMessage('user', message, imageUrl);
+            userInput.value = '';
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('message', message);
+            formData.append('sessionId', sessionId);
+            if (selectedImage) {
+                formData.append('image', selectedImage);
+            }
+
+            let retryCount = 0;
+            const maxRetries = 3;
+
+            async function attemptRequest() {
+                try {
+                    // Show thinking message
+                    addMessage('assistant', '<i class="fas fa-spinner fa-spin"></i> Thinking...');
+
+                    // Send to server
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    
+                    // Remove thinking message
+                    chatMessages.removeChild(chatMessages.lastChild);
+
+                    if (response.ok) {
+                        addMessage('assistant', data.response);
+                    } else if (response.status === 503 && retryCount < maxRetries) {
+                        // Service overloaded - implement retry with backoff
+                        retryCount++;
+                        const retryDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
+                        
+                        chatMessages.removeChild(chatMessages.lastChild);
+                        addMessage('assistant', `<i class="fas fa-sync fa-spin"></i> Service busy, retrying in ${retryDelay/1000} seconds...`);
+                        
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        return attemptRequest();
+                    } else {
+                        throw new Error(data.error || 'Failed to get response');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    chatMessages.removeChild(chatMessages.lastChild);
+                    
+                    if (error.message.includes('overloaded')) {
+                        addMessage('assistant', 'The service is currently experiencing high load. Please try again in a few moments.');
+                    } else {
+                        addMessage('assistant', 'Sorry, an error occurred. Please try again.');
+                    }
                 }
-                addMessage('assistant', response);
-            }, 2000);
+            }
+
+            await attemptRequest();
+
+            // Clear selected image
+            selectedImage = null;
+            imageUpload.value = '';
         }
 
-        addWelcomeMessage();
+        chatForm.addEventListener('submit', sendMessage);
+
+        // Initialize
+        addMessage('assistant', 'Welcome to Gemini AI Chat! How can I assist you today?');
     </script>
 </body>
 </html>
